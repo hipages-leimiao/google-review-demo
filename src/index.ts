@@ -1,7 +1,13 @@
 import express from "express";
 import cors from "cors";
 import { UI_ROOT_LOCATION_URI } from "./config";
-import { getAuthTokens, getAuthURL, getLocations, getUserInfo } from "./client";
+import {
+  getAuthTokens,
+  getAuthURL,
+  getLocationWithReviewCounts,
+  getUserInfo,
+} from "./client";
+import { FsStore } from "./store";
 
 const port = 4000;
 
@@ -17,10 +23,15 @@ app.use(
 );
 
 const redirectURI = "auth/google";
-
+const fStore = new FsStore();
 // Getting login URL
 app.get("/auth/google/url", (req, res) => {
   return res.send(getAuthURL());
+});
+
+app.get("/auth/google/locations", async (req, res) => {
+  const { refreshToken, accountId } = await fStore.get();
+  return res.send(await getLocationWithReviewCounts(refreshToken, accountId));
 });
 
 // Getting the user from Google with the code
@@ -33,24 +44,12 @@ app.get(`/${redirectURI}`, async (req, res) => {
   // Fetch the user's profile with the access token and bearer
   try {
     const googleUser = await getUserInfo(tokens);
-    console.log("refresh token", refresh_token);
-
-    console.log("id token", id_token);
     console.log("google user", googleUser);
-    console.log(
-      "locations:",
-      await getLocations(String(googleUser.id), String(access_token))
-    );
   } catch (error) {
     console.error(error);
   }
 
   res.redirect(UI_ROOT_LOCATION_URI);
-});
-
-// Getting the current user
-app.get("/auth/me", (req, res) => {
-  console.log("get me");
 });
 
 function main() {
